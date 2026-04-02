@@ -22,6 +22,8 @@ import AdminTestcasesPage from '@/pages/admin/AdminTestcasesPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminContestsPage from '@/pages/admin/AdminContestsPage';
 import AdminContestForm from '@/pages/admin/AdminContestForm';
+import AdminPostsPage from '@/pages/admin/AdminPostsPage';
+import AdminAuditLogsPage from '@/pages/admin/AdminAuditLogsPage';
 import ProfilePage from '@/pages/ProfilePage';
 import PublicProfilePage from '@/pages/PublicProfilePage';
 import DiscussPage from '@/pages/DiscussPage';
@@ -32,6 +34,7 @@ import LeaderboardPage from '@/pages/LeaderboardPage';
 import ContestPage from '@/pages/ContestPage';
 import ContestDetailPage from '@/pages/ContestDetailPage';
 import NotificationsPage from '@/pages/NotificationsPage';
+import MySubmissionsPage from '@/pages/MySubmissionsPage';
 import { ROUTES } from '@/utils/constants';
 import ProblemDetailPage from '@/pages/ProblemDetailPage';
 
@@ -105,6 +108,14 @@ const router = createBrowserRouter([
   },
   {
     path: '/users/:userId',
+    element: (
+      <MainLayout>
+        <PublicProfilePage />
+      </MainLayout>
+    ),
+  },
+  {
+    path: '/profile/:userId',
     element: (
       <MainLayout>
         <PublicProfilePage />
@@ -203,6 +214,14 @@ const router = createBrowserRouter([
         element: <AdminUsersPage />,
       },
       {
+        path: 'posts',
+        element: <AdminPostsPage />,
+      },
+      {
+        path: 'audit-logs',
+        element: <AdminAuditLogsPage />,
+      },
+      {
         path: 'contests',
         element: <AdminContestsPage />,
       },
@@ -241,6 +260,16 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute>
         <NotificationsPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: ROUTES.SUBMISSIONS,
+    element: (
+      <ProtectedRoute>
+        <MainLayout>
+          <MySubmissionsPage />
+        </MainLayout>
       </ProtectedRoute>
     ),
   },

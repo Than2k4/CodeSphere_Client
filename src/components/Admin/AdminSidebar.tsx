@@ -1,6 +1,6 @@
 // ...existing code...
 import { NavLink } from 'react-router-dom';
-import { FiGrid, FiFileText, FiTag, FiHash, FiClipboard, FiUsers, FiGlobe, FiChevronLeft, FiChevronRight, FiAward, FiSettings, FiExternalLink } from 'react-icons/fi';
+import { FiGrid, FiFileText, FiTag, FiHash, FiClipboard, FiUsers, FiGlobe, FiChevronLeft, FiChevronRight, FiAward, FiSettings, FiExternalLink, FiMessageSquare, FiActivity } from 'react-icons/fi';
 import { useState } from 'react';
 import logoImage from '@/assets/logo/logo.png';
 
@@ -8,10 +8,12 @@ const items = [
   { group: 'MAIN', children: [
     { to: '/admin', label: 'Dashboard', icon: <FiGrid /> },
     { to: '/admin/users', label: 'Users', icon: <FiUsers /> },
+    { to: '/admin/audit-logs', label: 'Audit Logs', icon: <FiActivity /> },
   ]},
   { group: 'CONTENT', children: [
     { to: '/admin/contests', label: 'Contests', icon: <FiAward /> },
     { to: '/admin/problems', label: 'Problems', icon: <FiFileText /> },
+    { to: '/admin/posts', label: 'Posts', icon: <FiMessageSquare /> },
     { to: '/admin/testcases', label: 'Testcases', icon: <FiClipboard /> },
   ]},
   { group: 'ORGANIZATION', children: [

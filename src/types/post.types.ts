@@ -61,3 +61,28 @@ export interface VoteResponse {
   userVote: number | null;
 }
 
+export interface PostReactionUserResponse {
+  userId: number;
+  username: string;
+  avatar: string | null;
+  reactedAt: string;
+}
+
+export interface ReactionSummaryItemResponse {
+  reactionType: 'LIKE' | 'LOVE' | 'HAHA' | 'WOW' | 'SAD' | 'ANGRY' | string;
+  count: number;
+}
+
+export interface PostReactionSummaryResponse {
+  postId: number;
+  totalReactions: number;
+  topReactions: ReactionSummaryItemResponse[];
+}
+
+export interface PostShareUserResponse {
+  userId: number;
+  username: string;
+  avatar: string | null;
+  sharedAt: string;
+}
+

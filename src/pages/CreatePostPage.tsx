@@ -4,6 +4,8 @@ import Container from '@/components/Layout/Container';
 import { FiSend, FiImage, FiX } from 'react-icons/fi';
 import MDEditor from '@uiw/react-md-editor';
 import '@uiw/react-md-editor/markdown-editor.css';
+import '@uiw/react-markdown-preview/markdown.css';
+import './CreatePostPage.css';
 import { postApi } from '@/apis/post.api';
 import { tagApi } from '@/apis/tag.api';
 import { fileApi } from '@/apis/file.api';
@@ -327,7 +329,7 @@ const CreatePostPage = () => {
           </div>
 
           {/* Markdown Editor */}
-          <div className="p-4" data-color-mode="light">
+          <div className="p-4 wmde-markdown-var create-post-editor" data-color-mode="light">
             <MDEditor
               value={content}
               onChange={(value) => setContent(value || '')}

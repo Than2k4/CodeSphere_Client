@@ -1,10 +1,14 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Container from '@/components/Layout/Container';
 import CommentList from '@/components/Comment/CommentList';
 import MyRankCard from '@/components/Leaderboard/MyRankCard';
 import LeaderboardTable from '@/components/Leaderboard/LeaderboardTable';
-import { FiLoader, FiAward } from 'react-icons/fi';
+import { FiLoader, FiAward, FiCopy, FiCheck, FiX, FiDownload } from 'react-icons/fi';
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 import type { ProblemDetailResponse } from '@/types/problem.types';
-import type { SubmissionResponse, SubmissionDetailResponse, RunCodeResponse } from '@/apis/submission.api';
+import type { SubmissionResponse, SubmissionDetailResponse, RunCodeResponse, ProblemSolutionResponse } from '@/apis/submission.api';
 import type { ContestSubmissionResponse } from '@/types/contest.types';
 import { getLevelBadge } from '../utils';
 import type { TabType } from '../types';
@@ -15,6 +19,17 @@ interface ProblemDescriptionPanelProps {
   onTabChange: (tab: TabType) => void;
   submissions: SubmissionResponse[];
   contestSubmissions?: ContestSubmissionResponse[];
+  solutions: ProblemSolutionResponse[];
+  isLoadingSolutions: boolean;
+  solutionsError: string | null;
+  solutionSearchInput: string;
+  onSolutionSearchInputChange: (value: string) => void;
+  solutionLanguageFilter: string;
+  onSolutionLanguageFilterChange: (value: string) => void;
+  solutionHasMore: boolean;
+  isLoadingMoreSolutions: boolean;
+  onLoadMoreSolutions: () => void;
+  onApplyToEditor: (code: string) => void;
   isLoadingSubmissions: boolean;
   selectedSubmission: SubmissionDetailResponse | null;
   onSelectSubmission: (submission: SubmissionDetailResponse) => void;
@@ -29,6 +44,17 @@ const ProblemDescriptionPanel = ({
   onTabChange,
   submissions,
   contestSubmissions = [],
+  solutions,
+  solutionSearchInput,
+  onSolutionSearchInputChange,
+  solutionLanguageFilter,
+  onSolutionLanguageFilterChange,
+  solutionHasMore,
+  isLoadingMoreSolutions,
+  onLoadMoreSolutions,
+  onApplyToEditor,
+  isLoadingSolutions,
+  solutionsError,
   isLoadingSubmissions,
   selectedSubmission,
   onSelectSubmission,
@@ -36,7 +62,27 @@ const ProblemDescriptionPanel = ({
   currentUserId,
   contestId,
 }: ProblemDescriptionPanelProps) => {
+  const navigate = useNavigate();
   const badge = getLevelBadge(problem.level);
+  const [expandedSolutionIds, setExpandedSolutionIds] = useState<number[]>([]);
+  const [copiedSolutionIds, setCopiedSolutionIds] = useState<number[]>([]);
+
+  const toggleSolution = (submissionId: number) => {
+    setExpandedSolutionIds((prev) =>
+      prev.includes(submissionId)
+        ? prev.filter((id) => id !== submissionId)
+        : [...prev, submissionId]
+    );
+  };
+
+  const handleCopyCode = (submissionId: number, codeContent: string) => {
+    navigator.clipboard.writeText(codeContent).then(() => {
+      setCopiedSolutionIds((prev) => [...prev, submissionId]);
+      setTimeout(() => {
+        setCopiedSolutionIds((prev) => prev.filter((id) => id !== submissionId));
+      }, 2000);
+    });
+  };
 
   return (
     <Container>
@@ -236,8 +282,188 @@ const ProblemDescriptionPanel = ({
         )}
 
         {!contestId && activeTab === 'solutions' && (
-          <div className="text-center py-12 text-gray-500">
-            Solutions coming soon...
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-gray-900">Community Solutions</h2>
+              <span className="text-xs text-gray-500">Only shown after you solve this problem</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="relative w-full max-w-sm">
+                <input
+                  type="text"
+                  value={solutionSearchInput}
+                  onChange={(e) => onSolutionSearchInputChange(e.target.value)}
+                  placeholder="Search by username..."
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-8"
+                />
+                {solutionSearchInput && (
+                  <button
+                    type="button"
+                    onClick={() => onSolutionSearchInputChange('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Clear search"
+                  >
+                    <FiX className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+
+              <select
+                value={solutionLanguageFilter}
+                onChange={(e) => onSolutionLanguageFilterChange(e.target.value)}
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              >
+                <option value="">All Languages</option>
+                <option value="java">Java</option>
+                <option value="python">Python</option>
+                <option value="cpp">C++</option>
+                <option value="c">C</option>
+                <option value="csharp">C#</option>
+                <option value="javascript">JavaScript</option>
+                <option value="typescript">TypeScript</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
+                <option value="php">PHP</option>
+                <option value="kotlin">Kotlin</option>
+              </select>
+            </div>
+
+            {isLoadingSolutions ? (
+              <div className="flex items-center justify-center py-12">
+                <FiLoader className="w-6 h-6 animate-spin text-gray-400" />
+                <span className="ml-2 text-gray-500">Loading solutions...</span>
+              </div>
+            ) : solutionsError ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm text-amber-800">{solutionsError}</p>
+              </div>
+            ) : solutions.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <p>No shared solutions from other users yet.</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {solutions.map((solution) => {
+                    const isExpanded = expandedSolutionIds.includes(solution.submissionId);
+
+                    return (
+                      <div key={solution.submissionId} className="rounded-xl border border-gray-200 bg-white">
+                        <div className="flex items-center justify-between gap-3 p-4 border-b border-gray-100">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-900">#{solution.rank}</span>
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/users/${solution.userId}`)}
+                                className="text-sm font-medium text-blue-700 hover:text-blue-800 hover:underline"
+                              >
+                                {solution.username}
+                              </button>
+                              <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-700">
+                                {solution.languageName || solution.languageCode || 'N/A'}
+                              </span>
+                            </div>
+                            <div className="mt-1 text-xs text-gray-500">
+                              Runtime {solution.statusRuntime || 'N/A'} • Memory {solution.statusMemory || 'N/A'} •{' '}
+                              {new Date(solution.submittedAt).toLocaleString('vi-VN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false,
+                              })}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => toggleSolution(solution.submissionId)}
+                            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 hover:bg-gray-50 transition-colors"
+                          >
+                            {isExpanded ? 'Hide code' : 'View code'}
+                          </button>
+                        </div>
+
+                        {isExpanded && (
+                          <div className="p-4 bg-gray-950 rounded-b-xl overflow-x-auto">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-xs text-gray-400">Code</span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyCode(solution.submissionId, solution.codeContent)}
+                                  className={`flex items-center gap-1 px-2.5 py-1 text-xs rounded transition-colors ${
+                                    copiedSolutionIds.includes(solution.submissionId)
+                                      ? 'bg-green-600 text-white'
+                                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                  }`}
+                                >
+                                  {copiedSolutionIds.includes(solution.submissionId) ? (
+                                    <>
+                                      <FiCheck className="w-3.5 h-3.5" />
+                                      <span>Copied!</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <FiCopy className="w-3.5 h-3.5" />
+                                      <span>Copy</span>
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => onApplyToEditor(solution.codeContent)}
+                                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                  title="Apply this code to editor"
+                                >
+                                  <FiDownload className="w-3.5 h-3.5" />
+                                  <span>Apply</span>
+                                </button>
+                              </div>
+                            </div>
+                            <SyntaxHighlighter
+                              language={solution.languageCode?.toLowerCase() || 'plaintext'}
+                              style={atomOneDark}
+                              className="rounded-lg !m-0 !bg-gray-950"
+                              customStyle={{
+                                fontSize: '0.875rem',
+                                lineHeight: '1.5rem',
+                                padding: '1rem',
+                              }}
+                            >
+                              {solution.codeContent}
+                            </SyntaxHighlighter>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {solutionHasMore && (
+                  <div className="flex justify-center pt-4">
+                    <button
+                      type="button"
+                      onClick={onLoadMoreSolutions}
+                      disabled={isLoadingMoreSolutions}
+                      className="px-4 py-2 text-sm font-medium text-blue-600 border border-blue-300 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isLoadingMoreSolutions ? (
+                        <div className="flex items-center gap-2">
+                          <FiLoader className="w-4 h-4 animate-spin" />
+                          <span>Loading...</span>
+                        </div>
+                      ) : (
+                        'Load More'
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 

@@ -1,6 +1,10 @@
 import apiClient from './apiClient';
 import type { DataResponse } from '@/types/common.types';
-import type { LeaderboardResponse, GlobalLeaderboardResponse } from '@/types/leaderboard.types';
+import type {
+  LeaderboardResponse,
+  GlobalLeaderboardResponse,
+  GlobalLeaderboardSeason,
+} from '@/types/leaderboard.types';
 
 export const leaderboardApi = {
   /**
@@ -42,8 +46,12 @@ export const leaderboardApi = {
    * Lấy global leaderboard - xếp hạng tất cả users theo tổng số bài đã giải đúng
    * @returns Danh sách global leaderboard entries
    */
-  getGlobalLeaderboard: async (): Promise<GlobalLeaderboardResponse[]> => {
-    const response = await apiClient.get<DataResponse<GlobalLeaderboardResponse[]>>('/leaderboard/global');
+  getGlobalLeaderboard: async (
+    season: GlobalLeaderboardSeason = 'all',
+  ): Promise<GlobalLeaderboardResponse[]> => {
+    const response = await apiClient.get<DataResponse<GlobalLeaderboardResponse[]>>('/leaderboard/global', {
+      params: { season },
+    });
     return response.data.data || [];
   },
 };

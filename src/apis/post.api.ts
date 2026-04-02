@@ -1,6 +1,6 @@
 import apiClient from './apiClient';
 import type { DataResponse } from '@/types/common.types';
-import type { PostResponse, PostDetailResponse, CreatePostRequest, VoteRequest, VoteResponse } from '@/types/post.types';
+import type { PostResponse, PostDetailResponse, CreatePostRequest, VoteRequest, VoteResponse, PostReactionUserResponse, PostReactionSummaryResponse, PostShareUserResponse } from '@/types/post.types';
 
 export interface GetPostsParams {
   authorId?: number;
@@ -45,8 +45,37 @@ export const postApi = {
     await apiClient.delete(`/posts/${id}`);
   },
 
-  votePost: async (id: number, voteType: number): Promise<VoteResponse> => {
-    const response = await apiClient.post<DataResponse<VoteResponse>>(`/posts/${id}/vote`, { vote: voteType });
+  votePost: async (id: number, voteType: number, reactionType?: string): Promise<VoteResponse> => {
+    const response = await apiClient.post<DataResponse<VoteResponse>>(`/posts/${id}/vote`, { vote: voteType, reactionType });
+    return response.data.data!;
+  },
+
+  reportPost: async (id: number, payload: { reasonCode: string; reasonDetail?: string }): Promise<string> => {
+    const response = await apiClient.post<DataResponse<string>>(`/posts/${id}/report`, payload);
+    return response.data.data!;
+  },
+
+  getPostReactions: async (id: number, limit = 20): Promise<PostReactionUserResponse[]> => {
+    const response = await apiClient.get<DataResponse<PostReactionUserResponse[]>>(`/posts/${id}/reactions`, {
+      params: { limit },
+    });
+    return response.data.data!;
+  },
+
+  getPostReactionSummary: async (id: number): Promise<PostReactionSummaryResponse> => {
+    const response = await apiClient.get<DataResponse<PostReactionSummaryResponse>>(`/posts/${id}/reaction-summary`);
+    return response.data.data!;
+  },
+
+  markPostShared: async (id: number): Promise<string> => {
+    const response = await apiClient.post<DataResponse<string>>(`/posts/${id}/share`);
+    return response.data.data!;
+  },
+
+  getPostShares: async (id: number, limit = 20): Promise<PostShareUserResponse[]> => {
+    const response = await apiClient.get<DataResponse<PostShareUserResponse[]>>(`/posts/${id}/shares`, {
+      params: { limit },
+    });
     return response.data.data!;
   },
 };

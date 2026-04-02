@@ -22,3 +22,5 @@ export interface GlobalLeaderboardResponse {
   solvedHard: number;
 }
 
+export type GlobalLeaderboardSeason = 'all' | 'monthly' | 'weekly';
+

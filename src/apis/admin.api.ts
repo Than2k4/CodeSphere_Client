@@ -2,8 +2,39 @@
 import apiClient from './apiClient';
 import type { DataResponse, PageResponse } from '@/types/common.types';
 import type { LanguageResponse } from '@/types/language.types';
-import type { UserManagementResponse, DashboardStatsResponse } from '@/types/admin.types';
+import type { UserManagementResponse, DashboardStatsResponse, AuditLogItem } from '@/types/admin.types';
 import type { ContestResponse, ContestDetailResponse, CreateContestRequest, ContestProblemRequest } from '@/types/contest.types';
+
+export interface AdminPostItem {
+  id: number;
+  title: string;
+  content: string;
+  isBlocked: boolean;
+  isDeleted?: boolean;
+  isResolved: boolean;
+  reportCount?: number;
+  lastReportedAt?: string;
+  moderationReasonCode?: string;
+  moderationReasonDetail?: string;
+  createdAt: string;
+  updatedAt?: string;
+  author?: {
+    id?: number;
+    username?: string;
+    avatar?: string | null;
+  };
+}
+
+export interface ModerationReasonTemplate {
+  code: string;
+  label: string;
+  description: string;
+}
+
+export interface ModeratePostPayload {
+  reasonCode: string;
+  reasonDetail: string;
+}
 
 export const adminApi = {
   // Languages
@@ -143,6 +174,38 @@ export const adminApi = {
     return res.data.data!;
   },
 
+  // Audit logs (admin)
+  getAuditLogs: async (
+    page = 0,
+    size = 20,
+    params: {
+      action?: string;
+      objectType?: string;
+      actorId?: number;
+      objectId?: number;
+      fromTime?: string;
+      toTime?: string;
+      q?: string;
+    } = {}
+  ) => {
+    const query: Record<string, string> = {
+      page: String(page),
+      size: String(size),
+    };
+
+    if (params.action) query.action = params.action;
+    if (params.objectType) query.objectType = params.objectType;
+    if (typeof params.actorId === 'number') query.actorId = String(params.actorId);
+    if (typeof params.objectId === 'number') query.objectId = String(params.objectId);
+    if (params.fromTime) query.fromTime = params.fromTime;
+    if (params.toTime) query.toTime = params.toTime;
+    if (params.q && params.q.trim()) query.q = params.q.trim();
+
+    const qp = new URLSearchParams(query).toString();
+    const res = await apiClient.get<DataResponse<PageResponse<AuditLogItem>>>(`/admin/audit-logs?${qp}`);
+    return res.data.data!;
+  },
+
   // Contests (admin)
   getContests: async (page = 0, size = 20, search?: string, type?: string) => {
     const params: Record<string, string> = { page: String(page), size: String(size) };
@@ -170,6 +233,37 @@ export const adminApi = {
 
   deleteContest: async (id: number) => {
     const res = await apiClient.delete<DataResponse<string>>(`/admin/contests/${id}`);
+    return res.data.data!;
+  },
+
+  // Posts (admin)
+  getAdminPosts: async (page = 0, size = 20, search?: string, isBlocked?: boolean) => {
+    const params: Record<string, string> = { page: String(page), size: String(size) };
+    if (search && search.trim()) params.search = search.trim();
+    if (typeof isBlocked === 'boolean') params.isBlocked = String(isBlocked);
+    const qp = new URLSearchParams(params).toString();
+    const res = await apiClient.get<DataResponse<PageResponse<AdminPostItem>>>(`/admin/posts?${qp}`);
+    return res.data.data!;
+  },
+
+  getAdminPostReportQueue: async (page = 0, size = 20) => {
+    const qp = new URLSearchParams({ page: String(page), size: String(size) }).toString();
+    const res = await apiClient.get<DataResponse<PageResponse<AdminPostItem>>>(`/admin/posts/report-queue?${qp}`);
+    return res.data.data!;
+  },
+
+  getPostModerationReasonTemplates: async () => {
+    const res = await apiClient.get<DataResponse<ModerationReasonTemplate[]>>('/admin/posts/moderation-reasons');
+    return res.data.data!;
+  },
+
+  deleteAdminPost: async (id: number, payload: ModeratePostPayload) => {
+    const res = await apiClient.delete<DataResponse<string>>(`/admin/posts/${id}`, { data: payload });
+    return res.data.data!;
+  },
+
+  toggleAdminPostBlock: async (id: number, payload: ModeratePostPayload) => {
+    const res = await apiClient.put<DataResponse<string>>(`/admin/posts/${id}/toggle-block`, payload);
     return res.data.data!;
   },
 

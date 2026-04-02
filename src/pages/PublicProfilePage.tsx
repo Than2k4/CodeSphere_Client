@@ -3,19 +3,21 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Container from '@/components/Layout/Container';
 import Avatar from '@/components/Avatar';
 import PostCard from '@/components/Post/PostCard';
-import { FiUserPlus, FiUserX, FiArrowLeft, FiUsers, FiFileText, FiMessageSquare } from 'react-icons/fi';
+import { FiUserPlus, FiUserX, FiArrowLeft, FiUsers, FiFileText, FiMessageSquare, FiX } from 'react-icons/fi';
 import { userApi } from '@/apis/user.api';
 import { followApi } from '@/apis/follow.api';
 import { conversationApi } from '@/apis/conversation.api';
 import { postApi } from '@/apis/post.api';
 import type { UserPublicProfileResponse } from '@/types/user.types';
 import type { PostResponse } from '@/types/post.types';
+import type { FollowResponse } from '@/types/follow.types';
 import { useAuth } from '@/hooks/useAuth';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
 type TabType = 'posts' | 'about' | 'stats';
+type FollowModalTab = 'followers' | 'following';
 
 const PublicProfilePage = () => {
   const { userId } = useParams<{ userId: string }>();
@@ -28,6 +30,10 @@ const PublicProfilePage = () => {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [isFollowing, setIsFollowing] = useState<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
+  const [followModalTab, setFollowModalTab] = useState<FollowModalTab>('followers');
+  const [followUsers, setFollowUsers] = useState<FollowResponse[]>([]);
+  const [loadingFollowUsers, setLoadingFollowUsers] = useState(false);
 
   useEffect(() => {
     if (userId) {
@@ -119,6 +125,40 @@ const PublicProfilePage = () => {
     }
   };
 
+  const fetchFollowUsers = async (tab: FollowModalTab) => {
+    if (!userId) return;
+
+    try {
+      setLoadingFollowUsers(true);
+      const data =
+        tab === 'followers'
+          ? await followApi.getFollowers(Number(userId))
+          : await followApi.getFollowing(Number(userId));
+      setFollowUsers(data);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi tải danh sách theo dõi');
+    } finally {
+      setLoadingFollowUsers(false);
+    }
+  };
+
+  const openFollowModal = async (tab: FollowModalTab) => {
+    setFollowModalTab(tab);
+    setIsFollowModalOpen(true);
+    await fetchFollowUsers(tab);
+  };
+
+  const handleSwitchFollowTab = async (tab: FollowModalTab) => {
+    if (tab === followModalTab) return;
+    setFollowModalTab(tab);
+    await fetchFollowUsers(tab);
+  };
+
+  const handleNavigateToPublicProfile = (targetUserId: number) => {
+    setIsFollowModalOpen(false);
+    navigate(`/users/${targetUserId}`);
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Chưa cập nhật';
     try {
@@ -170,16 +210,22 @@ const PublicProfilePage = () => {
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">{profile.username}</h1>
                 <div className="mt-2 flex items-center space-x-6 text-sm text-gray-600">
-                  <div className="flex items-center">
+                  <button
+                    onClick={() => openFollowModal('followers')}
+                    className="flex items-center hover:text-blue-600 transition-colors"
+                  >
                     <FiUsers className="mr-1" />
                     <span className="font-medium">{profile.followerCount}</span>
                     <span className="ml-1">người theo dõi</span>
-                  </div>
-                  <div className="flex items-center">
+                  </button>
+                  <button
+                    onClick={() => openFollowModal('following')}
+                    className="flex items-center hover:text-blue-600 transition-colors"
+                  >
                     <FiUsers className="mr-1" />
                     <span className="font-medium">{profile.followingCount}</span>
                     <span className="ml-1">đang theo dõi</span>
-                  </div>
+                  </button>
                   <div className="flex items-center">
                     <FiFileText className="mr-1" />
                     <span className="font-medium">{profile.postCount}</span>
@@ -313,6 +359,76 @@ const PublicProfilePage = () => {
             )}
           </div>
         </div>
+
+        {isFollowModalOpen && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            <button
+              aria-label="Close follow modal"
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setIsFollowModalOpen(false)}
+            />
+            <div className="relative w-full max-w-lg rounded-xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {followModalTab === 'followers' ? 'Người theo dõi' : 'Đang theo dõi'}
+                </h3>
+                <button
+                  onClick={() => setIsFollowModalOpen(false)}
+                  className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                >
+                  <FiX className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-200 bg-gray-50">
+                <button
+                  onClick={() => handleSwitchFollowTab('followers')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    followModalTab === 'followers'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Người theo dõi ({profile.followerCount})
+                </button>
+                <button
+                  onClick={() => handleSwitchFollowTab('following')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    followModalTab === 'following'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-100'
+                  }`}
+                >
+                  Đang theo dõi ({profile.followingCount})
+                </button>
+              </div>
+
+              <div className="max-h-[420px] overflow-y-auto p-2">
+                {loadingFollowUsers ? (
+                  <div className="py-10 text-center text-gray-500">Đang tải danh sách...</div>
+                ) : followUsers.length === 0 ? (
+                  <div className="py-10 text-center text-gray-500">Chưa có dữ liệu</div>
+                ) : (
+                  <div className="space-y-1">
+                    {followUsers.map((item) => (
+                      <button
+                        key={`${followModalTab}-${item.userId}`}
+                        onClick={() => handleNavigateToPublicProfile(item.userId)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors text-left"
+                      >
+                        <Avatar src={item.avatar || undefined} alt={item.username} size="sm" />
+                        <div>
+                          <p className="font-medium text-gray-900">{item.username}</p>
+                          <p className="text-xs text-gray-500">{followModalTab === 'followers' ? 'Đã theo dõi bạn' : 'Bạn đang theo dõi'}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Container>
     </div>
   );

@@ -6,6 +6,7 @@ import { FiEdit2, FiMail, FiArrowLeft, FiPhone, FiCalendar, FiX, FiUser, FiBarCh
 import { useEffect, useState } from 'react';
 import { authApi } from '@/apis/auth.api';
 import { followApi } from '@/apis/follow.api';
+import { statisticsApi, type MyStatsResponse } from '@/apis/statistics.api';
 import type { UserProfileResponse, UpdateProfileRequest } from '@/types/auth.types';
 import type { FollowResponse } from '@/types/follow.types';
 import { format } from 'date-fns';
@@ -27,6 +28,11 @@ const ProfilePage = () => {
   const [following, setFollowing] = useState<FollowResponse[]>([]);
   const [followers, setFollowers] = useState<FollowResponse[]>([]);
   const [loadingFollows, setLoadingFollows] = useState(false);
+  const [hasLoadedFollowing, setHasLoadedFollowing] = useState(false);
+  const [hasLoadedFollowers, setHasLoadedFollowers] = useState(false);
+  const [stats, setStats] = useState<MyStatsResponse | null>(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [hasLoadedStats, setHasLoadedStats] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -48,15 +54,20 @@ const ProfilePage = () => {
   useEffect(() => {
     const fetchFollows = async () => {
       if (!user?.id || activeTab !== 'following' && activeTab !== 'followers') return;
+
+      if (activeTab === 'following' && hasLoadedFollowing) return;
+      if (activeTab === 'followers' && hasLoadedFollowers) return;
       
       setLoadingFollows(true);
       try {
         if (activeTab === 'following') {
           const data = await followApi.getFollowing(user.id);
           setFollowing(data);
+          setHasLoadedFollowing(true);
         } else if (activeTab === 'followers') {
           const data = await followApi.getFollowers(user.id);
           setFollowers(data);
+          setHasLoadedFollowers(true);
         }
       } catch (error) {
         console.error('Error fetching follows:', error);
@@ -67,7 +78,28 @@ const ProfilePage = () => {
     };
 
     fetchFollows();
-  }, [user?.id, activeTab]);
+  }, [user?.id, activeTab, hasLoadedFollowing, hasLoadedFollowers]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (activeTab !== 'stats') return;
+      if (hasLoadedStats) return;
+
+      setLoadingStats(true);
+      try {
+        const data = await statisticsApi.getMyStats();
+        setStats(data);
+        setHasLoadedStats(true);
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+        toast.error('Không thể tải thống kê');
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, [activeTab, hasLoadedStats]);
 
   if (!user || loading) {
     return (
@@ -167,6 +199,38 @@ const ProfilePage = () => {
       setUploadingAvatar(false);
       e.target.value = '';
     }
+  };
+
+  const renderFollowSkeleton = () => {
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl animate-pulse">
+            <div className="w-10 h-10 rounded-full bg-gray-200" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-40 bg-gray-200 rounded" />
+              <div className="h-3 w-28 bg-gray-200 rounded" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderStatsSkeleton = () => {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-6 w-56 bg-gray-200 rounded" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="rounded-xl p-6 bg-gray-100">
+              <div className="h-8 w-16 bg-gray-200 rounded mx-auto mb-3" />
+              <div className="h-4 w-24 bg-gray-200 rounded mx-auto" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   const renderContent = () => {
@@ -345,21 +409,44 @@ const ProfilePage = () => {
     }
 
     if (activeTab === 'stats') {
+      if (loadingStats) {
+        return renderStatsSkeleton();
+      }
+
+      if (!stats) {
+        return <div className="text-center py-8 text-gray-500">Chưa có dữ liệu thống kê</div>;
+      }
+
       return (
         <div className="space-y-6">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Thống kê hoạt động</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">0</div>
+              <div className="text-3xl font-bold text-blue-600 mb-2">{stats.totalSolved}</div>
               <div className="text-sm font-medium text-gray-600">Bài đã giải</div>
             </div>
             <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-6 text-center">
-              <div className="text-3xl font-bold text-green-600 mb-2">0</div>
+              <div className="text-3xl font-bold text-green-600 mb-2">{stats.totalSubmissions}</div>
               <div className="text-sm font-medium text-gray-600">Bài đã nộp</div>
             </div>
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-6 text-center">
-              <div className="text-3xl font-bold text-purple-600 mb-2">0</div>
-              <div className="text-sm font-medium text-gray-600">Điểm số</div>
+              <div className="text-3xl font-bold text-purple-600 mb-2">{Math.round(stats.acceptanceRate)}%</div>
+              <div className="text-sm font-medium text-gray-600">Tỷ lệ AC</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <div className="text-xl font-bold text-emerald-600">{stats.solvedEasy}</div>
+              <div className="text-xs text-gray-600">Easy đã giải</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <div className="text-xl font-bold text-amber-600">{stats.solvedMedium}</div>
+              <div className="text-xs text-gray-600">Medium đã giải</div>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 text-center">
+              <div className="text-xl font-bold text-rose-600">{stats.solvedHard}</div>
+              <div className="text-xs text-gray-600">Hard đã giải</div>
             </div>
           </div>
         </div>
@@ -371,7 +458,7 @@ const ProfilePage = () => {
         <div className="space-y-4">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Đang theo dõi</h3>
           {loadingFollows ? (
-            <div className="text-center py-8 text-gray-500">Đang tải...</div>
+            renderFollowSkeleton()
           ) : following.length > 0 ? (
             <div className="space-y-2">
               {following.map((user) => (
@@ -405,7 +492,7 @@ const ProfilePage = () => {
         <div className="space-y-4">
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Người theo dõi</h3>
           {loadingFollows ? (
-            <div className="text-center py-8 text-gray-500">Đang tải...</div>
+            renderFollowSkeleton()
           ) : followers.length > 0 ? (
             <div className="space-y-2">
               {followers.map((user) => (

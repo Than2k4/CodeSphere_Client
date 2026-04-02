@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Loading from '@/components/Loading';
 import { problemApi, type TestCaseResponse } from '@/apis/problem.api';
 import type { ProblemResponse } from '@/types/problem.types';
-import { submissionApi, type RunCodeResponse, type CustomTestCase, type SubmissionResponse, type SubmissionDetailResponse } from '@/apis/submission.api';
+import { submissionApi, type RunCodeResponse, type CustomTestCase, type SubmissionResponse, type SubmissionDetailResponse, type ProblemSolutionResponse } from '@/apis/submission.api';
 import { contestApi } from '@/apis/contest.api';
 import { ROUTES } from '@/utils/constants';
 import type { ProblemDetailResponse } from '@/types/problem.types';
@@ -18,7 +18,7 @@ import ResizeHandle from './components/ResizeHandle';
 import { useAuth } from '@/hooks/useAuth';
 import type { TabType, EditorTabType, ResizeSide } from './types';
 import ContestHeader from '@/components/Contest/ContestHeader';
-import type { ContestDetailResponse } from '@/types/contest.types';
+import type { ContestDetailResponse, ContestSubmissionResponse } from '@/types/contest.types';
 
 const ProblemDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -44,6 +44,15 @@ const ProblemDetailPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissions, setSubmissions] = useState<SubmissionResponse[]>([]);
   const [contestSubmissions, setContestSubmissions] = useState<ContestSubmissionResponse[]>([]);
+  const [solutions, setSolutions] = useState<ProblemSolutionResponse[]>([]);
+  const [isLoadingSolutions, setIsLoadingSolutions] = useState(false);
+  const [solutionsError, setSolutionsError] = useState<string | null>(null);
+  const [solutionSearchInput, setSolutionSearchInput] = useState('');
+  const [debouncedSolutionSearch, setDebouncedSolutionSearch] = useState('');
+  const [solutionLanguageFilter, setSolutionLanguageFilter] = useState<string>('');
+  const [solutionPage, setSolutionPage] = useState(0);
+  const [solutionHasMore, setSolutionHasMore] = useState(true);
+  const [isLoadingMoreSolutions, setIsLoadingMoreSolutions] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionDetailResponse | null>(null);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
   const [isProblemListOpen, setIsProblemListOpen] = useState(false);
@@ -53,6 +62,14 @@ const ProblemDetailPage = () => {
   const [totalSolved, setTotalSolved] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [editorTheme, setEditorTheme] = useState<'light' | 'dark'>(() => {
+    // Load theme from localStorage on mount
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('editorTheme');
+      return (saved as 'light' | 'dark') || 'dark';
+    }
+    return 'dark';
+  });
   const [isRefactoring, setIsRefactoring] = useState(false);
   const [showDiff, setShowDiff] = useState(false);
   const [originalCode, setOriginalCode] = useState('');
@@ -188,6 +205,57 @@ const ProblemDetailPage = () => {
 
     fetchSubmissions();
   }, [id, activeTab, contestId]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSolutionSearch(solutionSearchInput.trim());
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [solutionSearchInput]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setSolutionPage(0);
+    setSolutionHasMore(true);
+  }, [debouncedSolutionSearch, solutionLanguageFilter]);
+
+  // Fetch public solutions (only after user solved this problem)
+  useEffect(() => {
+    const fetchSolutions = async () => {
+      if (!id || contestId || activeTab !== 'solutions') return;
+
+      try {
+        setIsLoadingSolutions(true);
+        setSolutionsError(null);
+        const response = await submissionApi.getProblemSolutions({
+          problemId: Number(id),
+          search: debouncedSolutionSearch || undefined,
+          languageCode: solutionLanguageFilter || undefined,
+          offset: solutionPage * 10,
+          limit: 10,
+        });
+        
+        if (solutionPage === 0) {
+          setSolutions(response);
+        } else {
+          setSolutions((prev) => [...prev, ...response]);
+        }
+        
+        setSolutionHasMore(response.length >= 10);
+      } catch (error: any) {
+        const message = error?.response?.data?.message || 'Không thể tải Solutions';
+        if (solutionPage === 0) {
+          setSolutions([]);
+        }
+        setSolutionsError(message);
+      } finally {
+        setIsLoadingSolutions(false);
+      }
+    };
+
+    fetchSolutions();
+  }, [id, activeTab, contestId, debouncedSolutionSearch, solutionLanguageFilter, solutionPage]);
 
   // Fetch problem list
   useEffect(() => {
@@ -481,6 +549,41 @@ const ProblemDetailPage = () => {
     setIsTimerRunning(false);
   };
 
+  const handleLoadMoreSolutions = async () => {
+    setIsLoadingMoreSolutions(true);
+    try {
+      const response = await submissionApi.getProblemSolutions({
+        problemId: Number(id),
+        search: debouncedSolutionSearch || undefined,
+        languageCode: solutionLanguageFilter || undefined,
+        offset: (solutionPage + 1) * 10,
+        limit: 10,
+      });
+      
+      setSolutions((prev) => [...prev, ...response]);
+      setSolutionPage((prev) => prev + 1);
+      setSolutionHasMore(response.length >= 10);
+    } catch (error) {
+      console.error('Error loading more solutions:', error);
+      toast.error('Không thể tải thêm Solutions');
+    } finally {
+      setIsLoadingMoreSolutions(false);
+    }
+  };
+
+  const handleApplyToEditor = (codeContent: string) => {
+    setCode(codeContent);
+    setActiveTab('description'); // Keep on description tab or switch to code editor if needed
+    toast.success('Code đã được áp dụng vào editor');
+  };
+
+  const handleToggleTheme = () => {
+    const newTheme = editorTheme === 'light' ? 'dark' : 'light';
+    setEditorTheme(newTheme);
+    localStorage.setItem('editorTheme', newTheme);
+    toast.success(`Switched to ${newTheme} mode`);
+  };
+
   const handleResizeStart = (side: ResizeSide, e: React.MouseEvent) => {
     e.preventDefault();
     setIsResizing(side);
@@ -760,6 +863,17 @@ const ProblemDetailPage = () => {
             onTabChange={setActiveTab}
             submissions={submissions}
             contestSubmissions={contestSubmissions}
+            solutions={solutions}
+            isLoadingSolutions={isLoadingSolutions}
+            solutionsError={solutionsError}
+            solutionSearchInput={solutionSearchInput}
+            onSolutionSearchInputChange={setSolutionSearchInput}
+            solutionLanguageFilter={solutionLanguageFilter}
+            onSolutionLanguageFilterChange={setSolutionLanguageFilter}
+            solutionHasMore={solutionHasMore}
+            isLoadingMoreSolutions={isLoadingMoreSolutions}
+            onLoadMoreSolutions={handleLoadMoreSolutions}
+            onApplyToEditor={handleApplyToEditor}
             isLoadingSubmissions={isLoadingSubmissions}
             selectedSubmission={selectedSubmission}
             onSelectSubmission={handleSelectSubmission}
@@ -799,6 +913,8 @@ const ProblemDetailPage = () => {
             onEditorTabChange={setActiveEditorTab}
             isChatOpen={isChatOpen}
             onToggleChat={() => setIsChatOpen(!isChatOpen)}
+            editorTheme={editorTheme}
+            onToggleTheme={handleToggleTheme}
             runResults={runResults}
             showDiff={showDiff}
             originalCode={originalCode}

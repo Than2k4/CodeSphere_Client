@@ -1,14 +1,16 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Avatar from '@/components/Avatar';
 import { conversationApi } from '@/apis/conversation.api';
 import { messageApi } from '@/apis/message.api';
+import { postApi } from '@/apis/post.api';
 import { fileApi } from '@/apis/file.api';
 import { authApi } from '@/apis/auth.api';
 import { followApi } from '@/apis/follow.api';
 import { userApi } from '@/apis/user.api';
 import type { FollowResponse } from '@/types/follow.types';
 import type { UserSearchResponse } from '@/types/user.types';
+import type { PostDetailResponse } from '@/types/post.types';
 import { messageWebSocketService } from '@/services/messageWebSocket.service';
 import type { ConversationResponse, MessageResponse, CreateConversationRequest } from '@/types/conversation.types';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,6 +22,7 @@ import { vi } from 'date-fns/locale';
 const MessagesPage = () => {
   const { conversationId } = useParams<{ conversationId?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [conversations, setConversations] = useState<ConversationResponse[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<ConversationResponse | null>(null);
@@ -63,6 +66,14 @@ const MessagesPage = () => {
   const [transferringAdminId, setTransferringAdminId] = useState<number | null>(null);
   const [showLeaveGroupModal, setShowLeaveGroupModal] = useState(false);
   const [selectedNewAdminId, setSelectedNewAdminId] = useState<number | null>(null);
+  const [sharedPostPreviews, setSharedPostPreviews] = useState<Record<number, PostDetailResponse | null>>({});
+
+  useEffect(() => {
+    const prefillMessage = (location.state as { prefillMessage?: string } | null)?.prefillMessage;
+    if (typeof prefillMessage === 'string' && prefillMessage.trim()) {
+      setMessageContent(prefillMessage);
+    }
+  }, [location.state]);
 
   // Đảm bảo container MessagesPage không scroll - scroll to top và disable body scroll
   useEffect(() => {
@@ -771,6 +782,99 @@ const MessagesPage = () => {
     }
   };
 
+  const extractDiscussPostPreview = (content?: string) => {
+    if (!content) return null;
+
+    const markdownMatch = content.match(/\[([^\]]+)\]\((https?:\/\/[^\s)]+\/discuss\/(\d+))\)/i);
+    if (markdownMatch) {
+      return {
+        title: markdownMatch[1].trim(),
+        url: markdownMatch[2],
+        postId: Number(markdownMatch[3]),
+        matchedToken: markdownMatch[0],
+      };
+    }
+
+    const fullUrlMatch = content.match(/(https?:\/\/[^\s]+\/discuss\/(\d+))/i);
+    if (fullUrlMatch) {
+      return {
+        title: `Post #${fullUrlMatch[2]}`,
+        url: fullUrlMatch[1],
+        postId: Number(fullUrlMatch[2]),
+        matchedToken: fullUrlMatch[1],
+      };
+    }
+
+    const relativeMatch = content.match(/(\/discuss\/(\d+))/i);
+    if (relativeMatch) {
+      return {
+        title: `Post #${relativeMatch[2]}`,
+        url: `${window.location.origin}${relativeMatch[1]}`,
+        postId: Number(relativeMatch[2]),
+        matchedToken: relativeMatch[1],
+      };
+    }
+
+    return null;
+  };
+
+  const stripPreviewToken = (content: string, token?: string) => {
+    if (!token) return content;
+    return content.replace(token, '').replace(/\n{3,}/g, '\n\n').trim();
+  };
+
+  const getPreviewImage = (postPreview?: PostDetailResponse | null) => {
+    if (!postPreview) return null;
+    if (postPreview.images && postPreview.images.length > 0) {
+      return postPreview.images[0];
+    }
+    return postPreview.imageUrl || null;
+  };
+
+  useEffect(() => {
+    const postIds = new Set<number>();
+    messages.forEach((message) => {
+      const preview = extractDiscussPostPreview(message.content || undefined);
+      if (preview?.postId) {
+        postIds.add(preview.postId);
+      }
+    });
+
+    const missingIds = Array.from(postIds).filter((id) => sharedPostPreviews[id] === undefined);
+    if (missingIds.length === 0) return;
+
+    let cancelled = false;
+
+    const fetchPostPreviews = async () => {
+      const results = await Promise.all(
+        missingIds.map(async (id) => {
+          try {
+            const detail = await postApi.getPostById(id);
+            return [id, detail] as const;
+          } catch {
+            return [id, null] as const;
+          }
+        })
+      );
+
+      if (cancelled) return;
+
+      setSharedPostPreviews((prev) => {
+        const next = { ...prev };
+        results.forEach(([id, detail]) => {
+          next[id] = detail;
+        });
+        return next;
+      });
+    };
+
+    fetchPostPreviews();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, sharedPostPreviews]);
+
   const sortedConversations = useMemo(() => {
     let filtered = [...conversations];
     
@@ -1133,6 +1237,12 @@ const MessagesPage = () => {
                           const isDeleted = message.isDeleted;
                           const isImageOnly = message.imageUrl && !message.content;
                           const isSystemMessage = message.messageType === 'SYSTEM';
+                          const discussPostPreview = !isDeleted ? extractDiscussPostPreview(message.content || '') : null;
+                          const linkedPost = discussPostPreview ? sharedPostPreviews[discussPostPreview.postId] : null;
+                          const previewImage = getPreviewImage(linkedPost);
+                          const plainMessageContent = message.content
+                            ? stripPreviewToken(message.content, discussPostPreview?.matchedToken)
+                            : '';
                           
                           // System message: hiển thị centered, đẹp hơn với gradient và border
                           if (isSystemMessage) {
@@ -1180,10 +1290,48 @@ const MessagesPage = () => {
                                   />
                                 )}
                                 
-                                {message.content && (
+                                {plainMessageContent && !discussPostPreview && (
                                   <p className="text-sm whitespace-pre-wrap break-words">
-                                    {isDeleted ? 'Message recalled' : message.content}
+                                    {isDeleted ? 'Message recalled' : plainMessageContent}
                                   </p>
+                                )}
+
+                                {discussPostPreview && !isDeleted && (
+                                  <button
+                                    onClick={() => navigate(`/discuss/${discussPostPreview.postId}`)}
+                                    className={`mt-2 w-full text-left rounded-2xl border overflow-hidden transition-colors ${
+                                      isOwn
+                                        ? 'border-blue-300 bg-blue-400/20 hover:bg-blue-400/30'
+                                        : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                                    }`}
+                                  >
+                                    {plainMessageContent && (
+                                      <div className={`px-3 py-2 text-sm font-semibold line-clamp-2 ${
+                                        isOwn
+                                          ? 'text-white bg-gradient-to-r from-indigo-600 to-blue-600'
+                                          : 'text-white bg-gradient-to-r from-indigo-500 to-violet-500'
+                                      }`}>
+                                        {plainMessageContent}
+                                      </div>
+                                    )}
+
+                                    {previewImage && (
+                                      <img
+                                        src={previewImage}
+                                        alt={linkedPost?.title || discussPostPreview.title}
+                                        className="w-full h-24 object-cover"
+                                      />
+                                    )}
+
+                                    <div className={`px-3 py-2 ${isOwn ? 'bg-blue-500/30' : 'bg-white'}`}>
+                                      <div className={`text-base font-bold leading-6 line-clamp-2 ${isOwn ? 'text-white' : 'text-gray-900'}`}>
+                                        {linkedPost?.title || discussPostPreview.title}
+                                      </div>
+                                      <div className={`text-xs mt-1 ${isOwn ? 'text-blue-100' : 'text-gray-500'}`}>
+                                        CodeSphere Discuss
+                                      </div>
+                                    </div>
+                                  </button>
                                 )}
                                 
                                 {!isImageOnly && (

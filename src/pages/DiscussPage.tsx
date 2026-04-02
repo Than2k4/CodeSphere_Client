@@ -192,8 +192,14 @@ const DiscussPage = () => {
   };
 
   const clearFilters = () => {
+    if (listSearchTimeout.current) clearTimeout(listSearchTimeout.current);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
     setSelectedTag(null);
     setSearchQuery('');
+    setDebouncedSearch('');
+    setSearchedUsers([]);
+    setSearchedPostsSuggestions([]);
+    setShowSearchResults(false);
     setFilterType('all');
     setPage(0);
   };
@@ -322,7 +328,16 @@ const DiscussPage = () => {
                 />
                       {searchQuery && (
                         <button
-                      onClick={() => { setSearchQuery(''); setPage(0); setShowSearchResults(false); }}
+                      onClick={() => {
+                        if (listSearchTimeout.current) clearTimeout(listSearchTimeout.current);
+                        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+                        setSearchQuery('');
+                        setDebouncedSearch('');
+                        setSearchedUsers([]);
+                        setSearchedPostsSuggestions([]);
+                        setPage(0);
+                        setShowSearchResults(false);
+                      }}
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
                           <FiX className="w-5 h-5" />
@@ -455,7 +470,7 @@ const DiscussPage = () => {
               ) : (
                 <>
                   {posts.map((post) => (
-                    <PostCard key={post.id} post={post} onVoteChange={fetchPosts} />
+                    <PostCard key={post.id} post={post} />
                   ))}
 
                   {/* Load More */}

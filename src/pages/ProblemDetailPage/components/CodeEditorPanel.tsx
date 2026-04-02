@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { Editor, DiffEditor } from '@monaco-editor/react';
 import toast from 'react-hot-toast';
+import { FiMoon, FiSun } from 'react-icons/fi';
 import { aiApi } from '@/apis/ai.api';
 import type { ProblemDetailResponse } from '@/types/problem.types';
 import type { RunCodeResponse, CustomTestCase } from '@/apis/submission.api';
@@ -20,6 +21,8 @@ interface CodeEditorPanelProps {
   onEditorTabChange: (tab: EditorTabType) => void;
   isChatOpen: boolean;
   onToggleChat: () => void;
+  editorTheme: 'light' | 'dark';
+  onToggleTheme: () => void;
   runResults: RunCodeResponse | null;
   // Refactor state
   showDiff: boolean;
@@ -56,6 +59,8 @@ const CodeEditorPanel = ({
   onEditorTabChange,
   isChatOpen,
   onToggleChat,
+  editorTheme,
+  onToggleTheme,
   runResults,
   showDiff,
   originalCode,
@@ -96,6 +101,26 @@ const CodeEditorPanel = ({
     return () => window.removeEventListener('resize', updateHeight);
   }, [activeEditorTab]);
 
+  // Handle language-specific validation
+  useEffect(() => {
+    if (!editorRef.current) return;
+
+    const editor = editorRef.current;
+    const model = editor.getModel();
+    if (!model) return;
+
+    // Clear all validation markers first
+    const monaco = (window as any).monaco;
+    if (monaco) {
+      monaco.editor.setModelMarkers(model, 'cpp-validator', []);
+    }
+
+    // Only setup C++ validation for C/C++ languages
+    if ((selectedLanguage === 'cpp' || selectedLanguage === 'c') && typeof setupCppValidation === 'function') {
+      setupCppValidation(editor, monaco);
+    }
+  }, [selectedLanguage]);
+
   const getMonacoLanguage = (lang: string) => {
     if (lang === 'cpp' || lang === 'c') return 'cpp';
     if (lang === 'python' || lang === 'py') return 'python';
@@ -103,107 +128,112 @@ const CodeEditorPanel = ({
     return lang;
   };
 
-  const getEditorOptions = () => ({
-    minimap: { enabled: false },
-    fontSize: 16,
-    lineHeight: 26,
-    wordWrap: 'on' as const,
-    automaticLayout: true,
-    scrollBeyondLastLine: false,
-    readOnly: false,
-    lineNumbers: 'on' as const,
-    renderLineHighlight: 'all' as const,
-    selectOnLineNumbers: true,
-    roundedSelection: true,
-    cursorStyle: 'line' as const,
-    cursorBlinking: 'smooth' as const,
-    fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
-    fontLigatures: false,
-    letterSpacing: 0.5,
-    tabSize: 2,
-    insertSpaces: true,
-    detectIndentation: false,
-    bracketPairColorization: { enabled: true },
-    colorDecorators: true,
-    suggestOnTriggerCharacters: true,
-    quickSuggestions: true,
-    validate: true,
-    glyphMargin: true,
-    renderValidationDecorations: 'on' as const,
-    folding: true,
-    foldingStrategy: 'indentation' as const,
-    showFoldingControls: 'always' as const,
-    unfoldOnClickAfterEndOfLine: true,
-    'editor.showFoldingControls': 'always' as const,
-    'editor.parameterHints.enabled': true,
-    'editor.quickSuggestions': {
-      other: true,
-      comments: false,
-      strings: false,
-    },
-    'editor.semanticHighlighting.enabled': true,
-    'editor.background': '#ffffff',
-    'editor.foreground': '#24292e',
-    'editor.lineHighlightBackground': '#f6f8fa',
-    'editor.selectionBackground': '#b3d4fc',
-    'editor.inactiveSelectionBackground': '#e5e5e5',
-    'editorCursor.foreground': '#24292e',
-    'editorWhitespace.foreground': '#d1d5da',
-    'editorIndentGuide.background': '#d1d5da',
-    'editorIndentGuide.activeBackground': '#6a737d',
-    'editorLineNumber.foreground': '#959da5',
-    'editorLineNumber.activeForeground': '#24292e',
-    'editor.foldBackground': '#f6f8fa',
-    'editorGutter.foldingControlForeground': '#6a737d',
-    'editor.tokenColorCustomizations': {
-      textMateRules: [
-        {
-          scope: ['comment'],
-          settings: { foreground: '#6a737d', fontStyle: 'italic' }
-        },
-        {
-          scope: ['keyword', 'storage.type', 'storage.modifier'],
-          settings: { foreground: '#d73a49', fontStyle: 'bold' }
-        },
-        {
-          scope: ['keyword.control', 'keyword.operator'],
-          settings: { foreground: '#d73a49', fontStyle: 'bold' }
-        },
-        {
-          scope: ['meta.preprocessor', 'entity.name.function.preprocessor', 'punctuation.definition.directive'],
-          settings: { foreground: '#6f42c1', fontStyle: 'bold' }
-        },
-        {
-          scope: ['string', 'string.quoted'],
-          settings: { foreground: '#032f62' }
-        },
-        {
-          scope: ['constant.numeric', 'constant.language'],
-          settings: { foreground: '#005cc5' }
-        },
-        {
-          scope: ['entity.name.function', 'entity.name.method'],
-          settings: { foreground: '#6f42c1' }
-        },
-        {
-          scope: ['entity.name.class', 'entity.name.type'],
-          settings: { foreground: '#e36209' }
-        },
-        {
-          scope: ['variable', 'variable.parameter'],
-          settings: { foreground: '#e36209' }
-        },
-        {
-          scope: ['punctuation', 'meta.brace'],
-          settings: { foreground: '#24292e' }
-        },
-        {
-          scope: ['support.type', 'support.class'],
-          settings: { foreground: '#005cc5' }
-        }
-      ]
-    }
-  });
+  const getEditorOptions = () => {
+    const isLight = editorTheme === 'light';
+    
+    return {
+      minimap: { enabled: false },
+      fontSize: 16,
+      lineHeight: 26,
+      wordWrap: 'on' as const,
+      automaticLayout: true,
+      scrollBeyondLastLine: false,
+      readOnly: false,
+      lineNumbers: 'on' as const,
+      renderLineHighlight: 'all' as const,
+      selectOnLineNumbers: true,
+      roundedSelection: true,
+      cursorStyle: 'line' as const,
+      cursorBlinking: 'smooth' as const,
+      fontFamily: "'Consolas', 'Monaco', 'Courier New', monospace",
+      fontLigatures: false,
+      letterSpacing: 0.5,
+      tabSize: 2,
+      insertSpaces: true,
+      detectIndentation: false,
+      bracketPairColorization: { enabled: true },
+      colorDecorators: true,
+      suggestOnTriggerCharacters: true,
+      quickSuggestions: true,
+      validate: true,
+      glyphMargin: true,
+      renderValidationDecorations: 'on' as const,
+      folding: true,
+      foldingStrategy: 'indentation' as const,
+      showFoldingControls: 'always' as const,
+      unfoldOnClickAfterEndOfLine: true,
+      'editor.showFoldingControls': 'always' as const,
+      'editor.parameterHints.enabled': true,
+      'editor.quickSuggestions': {
+        other: true,
+        comments: false,
+        strings: false,
+      },
+      'editor.semanticHighlighting.enabled': true,
+      // Light/Dark theme colors
+      'editor.background': isLight ? '#ffffff' : '#1e1e1e',
+      'editor.foreground': isLight ? '#24292e' : '#e0e0e0',
+      'editor.lineHighlightBackground': isLight ? '#f6f8fa' : '#2d2d30',
+      'editor.selectionBackground': isLight ? '#b3d4fc' : '#264f78',
+      'editor.inactiveSelectionBackground': isLight ? '#e5e5e5' : '#3f3f46',
+      'editorCursor.foreground': isLight ? '#24292e' : '#aeafad',
+      'editorWhitespace.foreground': isLight ? '#d1d5da' : '#464647',
+      'editorIndentGuide.background': isLight ? '#d1d5da' : '#464647',
+      'editorIndentGuide.activeBackground': isLight ? '#6a737d' : '#a9a9a9',
+      'editorLineNumber.foreground': isLight ? '#959da5' : '#6a6a6a',
+      'editorLineNumber.activeForeground': isLight ? '#24292e' : '#ffffff',
+      'editor.foldBackground': isLight ? '#f6f8fa' : '#252526',
+      'editorGutter.foldingControlForeground': isLight ? '#6a737d' : '#a9a9a9',
+      'editor.tokenColorCustomizations': {
+        textMateRules: [
+          {
+            scope: ['comment'],
+            settings: { foreground: isLight ? '#6a737d' : '#6a9955', fontStyle: 'italic' }
+          },
+          {
+            scope: ['keyword', 'storage.type', 'storage.modifier'],
+            settings: { foreground: isLight ? '#d73a49' : '#569cd6', fontStyle: 'bold' }
+          },
+          {
+            scope: ['keyword.control', 'keyword.operator'],
+            settings: { foreground: isLight ? '#d73a49' : '#569cd6', fontStyle: 'bold' }
+          },
+          {
+            scope: ['meta.preprocessor', 'entity.name.function.preprocessor', 'punctuation.definition.directive'],
+            settings: { foreground: isLight ? '#6f42c1' : '#c586c0', fontStyle: 'bold' }
+          },
+          {
+            scope: ['string', 'string.quoted'],
+            settings: { foreground: isLight ? '#032f62' : '#ce9178' }
+          },
+          {
+            scope: ['constant.numeric', 'constant.language'],
+            settings: { foreground: isLight ? '#005cc5' : '#b5cea8' }
+          },
+          {
+            scope: ['entity.name.function', 'entity.name.method'],
+            settings: { foreground: isLight ? '#6f42c1' : '#dcdcaa' }
+          },
+          {
+            scope: ['entity.name.class', 'entity.name.type'],
+            settings: { foreground: isLight ? '#e36209' : '#4ec9b0' }
+          },
+          {
+            scope: ['variable', 'variable.parameter'],
+            settings: { foreground: isLight ? '#e36209' : '#9cdcfe' }
+          },
+          {
+            scope: ['punctuation', 'meta.brace'],
+            settings: { foreground: isLight ? '#24292e' : '#d4d4d4' }
+          },
+          {
+            scope: ['support.type', 'support.class'],
+            settings: { foreground: isLight ? '#005cc5' : '#4ec9b0' }
+          }
+        ]
+      }
+    };
+  };
 
   return (
     <div className="flex flex-col bg-white border-l border-gray-200 h-full">
@@ -261,19 +291,28 @@ const CodeEditorPanel = ({
             </button>
           )}
         </div>
-        {/* AI Chat Button - Ẩn khi đang trong contest */}
-        {!contestId && (
+        {/* Theme Toggle & AI Chat Buttons */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={onToggleChat}
-            className={`px-3 py-1.5 text-sm font-medium transition-colors mr-2 ${
-              isChatOpen
-                ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
+            onClick={onToggleTheme}
+            className="px-2 py-1.5 text-sm font-medium transition-colors text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
+            title={`Switch to ${editorTheme === 'light' ? 'dark' : 'light'} mode`}
           >
-            AI Chat
+            {editorTheme === 'light' ? <FiMoon className="w-4 h-4" /> : <FiSun className="w-4 h-4" />}
           </button>
-        )}
+          {!contestId && (
+            <button
+              onClick={onToggleChat}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors mr-2 ${
+                isChatOpen
+                  ? 'text-blue-600 bg-blue-50 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              AI Chat
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Editor Content */}
@@ -339,14 +378,14 @@ const CodeEditorPanel = ({
             </div>
 
             {/* Code Editor */}
-            <div ref={editorContainerRef} className="flex-1 bg-white min-h-0 relative" style={{ minHeight: '400px' }}>
+            <div ref={editorContainerRef} className={`flex-1 min-h-0 relative ${editorTheme === 'light' ? 'bg-white' : 'bg-gray-900'}`} style={{ minHeight: '400px' }}>
               {showDiff ? (
                 <DiffEditor
                   height={editorHeight}
                   language={getMonacoLanguage(selectedLanguage)}
                   original={originalCode}
                   modified={refactoredCode}
-                  theme="vs"
+                  theme={editorTheme === 'light' ? 'vs' : 'vs-dark'}
                   options={{
                     readOnly: true,
                     renderSideBySide: false,
@@ -362,7 +401,7 @@ const CodeEditorPanel = ({
                   language={getMonacoLanguage(selectedLanguage)}
                   value={code}
                   onChange={(value) => onCodeChange(value || '')}
-                  theme="vs"
+                  theme={editorTheme === 'light' ? 'vs' : 'vs-dark'}
                   onMount={(editor, monaco) => {
                     editorRef.current = editor;
                     // Đảm bảo editor không bị readOnly
@@ -371,9 +410,6 @@ const CodeEditorPanel = ({
                     setTimeout(() => {
                       editor.layout();
                     }, 100);
-                    if (selectedLanguage === 'cpp' || selectedLanguage === 'c') {
-                      setupCppValidation(editor, monaco);
-                    }
                   }}
                   options={getEditorOptions()}
                 />

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import Avatar from '@/components/Avatar';
 import CommentForm from './CommentForm';
+import CommentContentRenderer from './CommentContentRenderer';
 import { FiMoreVertical, FiEdit2, FiTrash2, FiCornerDownRight, FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { commentApi } from '@/apis/comment.api';
 import type { Comment } from '@/types/comment.types';
@@ -31,11 +32,11 @@ const CommentItem = ({ comment, problemId, postId, onUpdate, onDelete, level = 0
   // So sánh owner - đảm bảo cả hai đều có giá trị và so sánh đúng
   const userId = user?.id;
   const authorId = comment.authorId;
-  
+
   // So sánh chính xác - convert cả hai về number để so sánh
-  const isOwner = userId != null && 
-                  authorId != null && 
-                  Number(userId) === Number(authorId);
+  const isOwner = userId != null &&
+    authorId != null &&
+    Number(userId) === Number(authorId);
   const hasReplies = (comment.replies && comment.replies.length > 0) || (comment.replyCount && comment.replyCount > 0);
 
   const handleReply = async (content: string) => {
@@ -87,7 +88,7 @@ const CommentItem = ({ comment, problemId, postId, onUpdate, onDelete, level = 0
     const confirmMessage = hasRepliesToDelete
       ? `Are you sure you want to delete this comment? All ${replyCount} replies will also be deleted.`
       : 'Are you sure you want to delete this comment?';
-    
+
     if (!confirm(confirmMessage)) return;
     try {
       setIsDeleting(true);
@@ -109,15 +110,15 @@ const CommentItem = ({ comment, problemId, postId, onUpdate, onDelete, level = 0
   return (
     <div className={`${level > 0 ? 'ml-12 mt-3 border-l-2 border-blue-200 pl-4' : 'mb-4'}`}>
       <div className="flex gap-3">
-        <Avatar 
-          user={{ 
-            id: comment.authorId, 
-            username: comment.authorName || 'User', 
-            email: '', 
-            role: '', 
-            avatar: comment.authorAvatar 
-          }} 
-          size="md" 
+        <Avatar
+          user={{
+            id: comment.authorId,
+            username: comment.authorName || 'User',
+            email: '',
+            role: '',
+            avatar: comment.authorAvatar
+          }}
+          size="md"
         />
         <div className="flex-1 min-w-0">
           <div className={`rounded-lg p-4 ${level > 0 ? 'bg-blue-50/50 border border-blue-100' : 'bg-gray-50'}`}>
@@ -125,9 +126,9 @@ const CommentItem = ({ comment, problemId, postId, onUpdate, onDelete, level = 0
               <div>
                 <span className="font-semibold text-gray-900">{comment.authorName}</span>
                 <span className="text-sm text-gray-500 ml-2">
-                  {formatDistanceToNow(new Date(comment.createdAt), { 
-                    addSuffix: true, 
-                    locale: enUS 
+                  {formatDistanceToNow(new Date(comment.createdAt), {
+                    addSuffix: true,
+                    locale: enUS
                   })}
                 </span>
                 {comment.updatedAt !== comment.createdAt && (
@@ -145,8 +146,8 @@ const CommentItem = ({ comment, problemId, postId, onUpdate, onDelete, level = 0
                 </button>
                 {showMenu && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-10" 
+                    <div
+                      className="fixed inset-0 z-10"
                       onClick={() => setShowMenu(false)}
                     />
                     <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg py-1 z-20 border border-gray-200">
@@ -212,7 +213,10 @@ const CommentItem = ({ comment, problemId, postId, onUpdate, onDelete, level = 0
                 </div>
               </div>
             ) : (
-              <p className="text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+              <CommentContentRenderer
+                content={comment.content}
+                enableAutoDetect={true}
+              />
             )}
           </div>
 
@@ -246,15 +250,15 @@ const CommentItem = ({ comment, problemId, postId, onUpdate, onDelete, level = 0
 
           {isReplying && (
             <div className="mt-4">
-                <CommentForm
-                  problemId={problemId}
-                  postId={postId}
-                  parentId={comment.id}
-                  onSubmit={handleReply}
-                  onCancel={() => setIsReplying(false)}
-                  placeholder="Write a reply..."
-                  isSubmitting={isSubmitting}
-                />
+              <CommentForm
+                problemId={problemId}
+                postId={postId}
+                parentId={comment.id}
+                onSubmit={handleReply}
+                onCancel={() => setIsReplying(false)}
+                placeholder="Write a reply..."
+                isSubmitting={isSubmitting}
+              />
             </div>
           )}
 

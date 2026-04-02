@@ -60,6 +60,20 @@ export interface SubmissionDetailResponse {
   updatedAt: string;
 }
 
+export interface ProblemSolutionResponse {
+  submissionId: number;
+  userId: number;
+  username: string;
+  rank: number;
+  bestScore: number;
+  languageName: string;
+  languageCode: string;
+  statusRuntime: string;
+  statusMemory: string;
+  submittedAt: string;
+  codeContent: string;
+}
+
 export interface TestResult {
   testCaseId: number | null;
   input: string;
@@ -103,6 +117,7 @@ export const submissionApi = {
   // Get my submissions
   getMySubmissions: async (params?: {
     problemId?: number;
+    search?: string;
     status?: string;
     page?: number;
     size?: number;
@@ -111,6 +126,19 @@ export const submissionApi = {
       params,
     });
     return response.data.data!;
+  },
+
+  getProblemSolutions: async (params: {
+    problemId: number;
+    search?: string;
+    languageCode?: string;
+    offset?: number;
+    limit?: number;
+  }): Promise<ProblemSolutionResponse[]> => {
+    const response = await apiClient.get<DataResponse<ProblemSolutionResponse[]>>('/submissions/solutions', {
+      params,
+    });
+    return response.data.data || [];
   },
 };
 

@@ -18,7 +18,7 @@ type TabType = 'problem' | 'global';
 const LeaderboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabType>('problem');
+  const [activeTab, setActiveTab] = useState<TabType>('global');
   const [selectedProblem, setSelectedProblem] = useState<ProblemResponse | null>(null);
   const [problems, setProblems] = useState<ProblemResponse[]>([]);
   const [isLoadingProblems, setIsLoadingProblems] = useState(true);
@@ -111,19 +111,6 @@ const LeaderboardPage = () => {
         <div className="mb-6 border-b border-gray-200">
           <nav className="flex gap-1">
             <button
-              onClick={() => setActiveTab('problem')}
-              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-                activeTab === 'problem'
-                  ? 'text-blue-600 border-blue-600'
-                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <FiAward className="w-4 h-4" />
-                <span>Problem Leaderboard</span>
-              </div>
-            </button>
-            <button
               onClick={() => setActiveTab('global')}
               className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
                 activeTab === 'global'
@@ -134,6 +121,19 @@ const LeaderboardPage = () => {
               <div className="flex items-center gap-2">
                 <FiGlobe className="w-4 h-4" />
                 <span>Global Leaderboard</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('problem')}
+              className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
+                activeTab === 'problem'
+                  ? 'text-blue-600 border-blue-600'
+                  : 'text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <FiAward className="w-4 h-4" />
+                <span>Problem Leaderboard</span>
               </div>
             </button>
           </nav>
@@ -304,7 +304,7 @@ const LeaderboardPage = () => {
                 Global Leaderboard
               </h2>
               <p className="text-gray-600 mb-4">
-                Ranking all users by total number of solved problems
+                Ranking all users by solved problems with season filters, momentum tracking, and rank cards.
               </p>
               <GlobalLeaderboardTable highlightUserId={user?.id} />
             </div>
