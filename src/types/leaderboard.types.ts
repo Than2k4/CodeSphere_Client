@@ -10,6 +10,7 @@ export interface LeaderboardResponse {
   statusRuntime: string;
   statusMemory: string;
   isAccepted: boolean;
+  avatar?: string; // URL avatar của user
 }
 
 export interface GlobalLeaderboardResponse {
@@ -20,6 +21,7 @@ export interface GlobalLeaderboardResponse {
   solvedEasy: number;
   solvedMedium: number;
   solvedHard: number;
+  avatar?: string; // URL avatar của user
 }
 
 export type GlobalLeaderboardSeason = 'all' | 'monthly' | 'weekly';

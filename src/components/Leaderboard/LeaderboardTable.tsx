@@ -137,7 +137,7 @@ const LeaderboardTable = ({ problemId, highlightUserId, compact = false }: Leade
                         onClick={() => navigate(`/users/${entry.userId}`)}
                         className="flex items-center gap-2 hover:text-blue-600 transition-colors"
                       >
-                        <Avatar size="sm" alt={entry.username} />
+                        <Avatar src={entry.avatar} size="sm" alt={entry.username} />
                         <span className="text-sm font-medium text-gray-900">{entry.username}</span>
                       </button>
                     </td>
@@ -206,7 +206,7 @@ const LeaderboardTable = ({ problemId, highlightUserId, compact = false }: Leade
                       onClick={() => navigate(`/users/${entry.userId}`)}
                       className="flex items-center gap-2 hover:text-blue-600 transition-colors group"
                     >
-                      <Avatar size="sm" alt={entry.username} />
+                      <Avatar src={entry.avatar} size="sm" alt={entry.username} />
                       <span className="text-sm font-medium text-gray-900 group-hover:underline">
                         {entry.username}
                       </span>

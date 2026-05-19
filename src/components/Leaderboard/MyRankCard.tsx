@@ -125,23 +125,30 @@ const MyRankCard = ({ problemId, userId, compact = false }: MyRankCardProps) => 
   if (compact) {
     return (
       <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
-        <div className="flex items-center justify-between mb-2">
+        {/* Rank section - nổi bật ở trên */}
+        <div className="flex flex-col items-center justify-center mb-3 pb-3 border-b border-blue-200/60">
           {getRankBadge(myRank.rank)}
-          <span className={`text-lg font-bold ${myRank.isAccepted ? 'text-green-600' : 'text-gray-600'}`}>
+          <span className="text-xs font-semibold text-blue-700 mt-1">Xếp hạng của bạn</span>
+        </div>
+
+        {/* Score and details */}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1 text-xs text-gray-600">
+            <FiAward className="w-3 h-3" />
+            <span>Score:</span>
+          </div>
+          <span className={`text-base font-bold ${myRank.isAccepted ? 'text-green-600' : 'text-gray-600'}`}>
             {myRank.bestScore}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-xs text-gray-600">
+
+        {/* Runtime */}
+        <div className="flex items-center justify-between text-xs text-gray-600">
           <span className="flex items-center gap-1">
             <FiClock className="w-3 h-3" />
-            {formatRuntime(myRank.statusRuntime)}
+            Runtime
           </span>
-          {!compact && (
-            <span className="flex items-center gap-1">
-              <FiDatabase className="w-3 h-3" />
-              {myRank.statusMemory || 'N/A'}
-            </span>
-          )}
+          <span className="font-semibold text-gray-700">{formatRuntime(myRank.statusRuntime)}</span>
         </div>
       </div>
     );

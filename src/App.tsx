@@ -9,11 +9,16 @@ function App() {
       <RouterProvider router={router} />
       <Toaster
         position="top-right"
+        containerStyle={{
+          zIndex: 20001,
+        }}
         toastOptions={{
           duration: 4000,
           style: {
-            background: '#363636',
+            background: '#111827',
             color: '#fff',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            boxShadow: '0 10px 30px rgba(0, 0, 0, 0.35)',
           },
           success: {
             duration: 3000,

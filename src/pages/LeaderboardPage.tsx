@@ -268,12 +268,6 @@ const LeaderboardPage = () => {
         {activeTab === 'problem' ? (
           selectedProblem ? (
             <div className="space-y-6">
-              {/* Statistics */}
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistics</h2>
-                <ProblemStatistics problemId={selectedProblem.id} />
-              </div>
-
               {/* My Rank Card */}
               {user?.id && (
                 <MyRankCard problemId={selectedProblem.id} userId={user.id} compact={false} />
@@ -287,6 +281,12 @@ const LeaderboardPage = () => {
                   highlightUserId={user?.id}
                   compact={false}
                 />
+              </div>
+
+              {/* Statistics */}
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4">Statistics</h2>
+                <ProblemStatistics problemId={selectedProblem.id} />
               </div>
             </div>
           ) : (

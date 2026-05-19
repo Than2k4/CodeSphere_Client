@@ -16,11 +16,18 @@ const LeaderboardSidebar = ({ isOpen, onClose, problemId, userId }: LeaderboardS
     <div className="fixed inset-0 z-50 flex">
       {/* Sidebar - Bên trái */}
       <div className="w-96 bg-white shadow-xl flex flex-col">
+        {/* My Rank Card - Ở trên cùng */}
+        <div className="p-4 border-b border-gray-200">
+          {userId && (
+            <MyRankCard problemId={problemId} userId={userId} compact={false} />
+          )}
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <FiAward className="w-5 h-5 text-yellow-500" />
-            <h2 className="text-xl font-bold text-gray-900">Leaderboard</h2>
+            <h2 className="text-lg font-bold text-gray-900">Leaderboard</h2>
           </div>
           <button
             onClick={onClose}
@@ -31,21 +38,13 @@ const LeaderboardSidebar = ({ isOpen, onClose, problemId, userId }: LeaderboardS
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* My Rank Card */}
-          {userId && (
-            <MyRankCard problemId={problemId} userId={userId} compact={true} />
-          )}
-
+        <div className="flex-1 overflow-y-auto p-4">
           {/* Leaderboard Table */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-2">Leaderboard</h3>
-            <LeaderboardTable 
-              problemId={problemId} 
-              highlightUserId={userId}
-              compact={true}
-            />
-          </div>
+          <LeaderboardTable 
+            problemId={problemId} 
+            highlightUserId={userId}
+            compact={true}
+          />
         </div>
       </div>
       {/* Overlay - Bên phải sidebar */}

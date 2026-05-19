@@ -437,7 +437,7 @@ const GlobalLeaderboardTable = ({ highlightUserId }: GlobalLeaderboardTableProps
                     </span>
                   </div>
                   <div className="mb-3 flex items-center gap-3">
-                    <Avatar alt={entry.username} size="md" />
+                    <Avatar src={entry.avatar} alt={entry.username} size="md" />
                     <div>
                       <p className="font-semibold text-gray-900">{entry.username}</p>
                       <p className="text-xs text-gray-500">{renderMovement(entry.movement)}</p>
@@ -488,7 +488,7 @@ const GlobalLeaderboardTable = ({ highlightUserId }: GlobalLeaderboardTableProps
                     <td className="whitespace-nowrap px-6 py-4">{getRankBadge(entry.rank)}</td>
                     <td className="whitespace-nowrap px-6 py-4">
                       <div className="group relative flex items-center gap-3">
-                        <Avatar alt={entry.username} size="sm" />
+                        <Avatar src={entry.avatar} alt={entry.username} size="sm" />
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-gray-900">{entry.username}</span>
